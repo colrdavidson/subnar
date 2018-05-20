@@ -3,8 +3,8 @@ import sys
 GRID_HEIGHT = 10
 GRID_WIDTH = 10
 
-X_SECTORS = 2
-Y_SECTORS = 2
+X_SECTORS = 1
+Y_SECTORS = 1
 
 BLOCKED = "*"
 FILLED = "+"
@@ -16,6 +16,13 @@ SOUTH = 2
 WEST = 3
 EAST = 4
 SURFACE = 5
+SILENCE = 6
+
+def to_coords(idx):
+    return (int(idx % GRID_WIDTH), int(idx / GRID_WIDTH))
+
+def to_idx(x, y):
+    return y * GRID_WIDTH + x
 
 def init_grid():
     grid = []
@@ -61,8 +68,8 @@ def print_grid(grid):
         print('- ', end='')
     print()
 
-def map_valid_starts(grid, valid_starts):
-    for idx in valid_starts:
+def map_possible_points(grid, possible_points):
+    for idx in possible_points:
         grid[idx] = POSSIBLE
 
 # Generates grid appropriate index from human readable index
@@ -76,9 +83,8 @@ def g_idx(idx_str):
 
 # Generates human readable index from grid appropriate index
 def v_idx(idx):
-    x = int(idx / GRID_WIDTH)
-    y = int(idx % GRID_WIDTH) + 1
-    idx_str = "{}{}".format(chr(x + 97).upper(), y)
+    (x, y) = to_coords(idx)
+    idx_str = "{}{}".format(chr(x + 97).upper(), y + 1)
 
     return idx_str
 
@@ -97,8 +103,7 @@ def is_valid_space(grid, x, y):
     return True
 
 def move(grid, ship_idx, direction):
-    ship_x = int(ship_idx % GRID_WIDTH)
-    ship_y = int(ship_idx / GRID_WIDTH)
+    (ship_x, ship_y) = to_coords(ship_idx)
 
     new_x = ship_x
     new_y = ship_y
@@ -117,7 +122,7 @@ def move(grid, ship_idx, direction):
 
     # print("({},{}) -> ({},{})".format(ship_x, ship_y, new_x, new_y))
 
-    new_idx = new_y * GRID_WIDTH + new_x
+    new_idx = to_idx(new_x, new_y)
 
     return new_idx
 
@@ -133,13 +138,93 @@ def valid_path(grid, start, moves):
         if move_dir == SURFACE:
             tmp_grids.append(grid[:])
             tmp_grid = tmp_grids[-1]
+        elif move_dir == SILENCE:
+            continue # TODO: Finish building silence tree and establishing justified pruning
 
-        new_idx = move(tmp_grid, cur_idx, move_dir)
-        if new_idx == -1:
-            return False
+            path_options = []
 
-        cur_idx = new_idx
-        tmp_grid[cur_idx] = FILLED
+            n_idx = cur_idx
+            s_idx = cur_idx
+            w_idx = cur_idx
+            e_idx = cur_idx
+
+            for i in range(0, 4):
+                if n_idx != -1:
+                    n_idx = move(tmp_grid, n_idx, NORTH)
+                    if n_idx != -1:
+                        path_options.append(n_idx)
+
+                if s_idx != -1:
+                    s_idx = move(tmp_grid, s_idx, SOUTH)
+                    if s_idx != -1:
+                        path_options.append(s_idx)
+
+                if w_idx != -1:
+                    w_idx = move(tmp_grid, w_idx, WEST)
+                    if w_idx != -1:
+                        path_options.append(w_idx)
+
+                if e_idx != -1:
+                    e_idx = move(tmp_grid, e_idx, EAST)
+                    if e_idx != -1:
+                        path_options.append(e_idx)
+
+            path_options.append(cur_idx)
+
+            new_branches = len(path_options)
+
+            (cur_x, cur_y) = to_coords(cur_idx)
+
+            new_grids = []
+            for branch_idx in path_options:
+                new_grid = tmp_grid[:]
+                new_grids.append(new_grid)
+
+                (branch_x, branch_y) = to_coords(branch_idx)
+
+                dist_y = branch_y - cur_y
+                dist_x = branch_x - cur_x
+
+                new_grid[branch_idx] = FILLED
+                new_grid[cur_idx] = FILLED
+
+                horiz = False
+                if abs(dist_x) > abs(dist_y):
+                    horiz = True
+
+                if horiz:
+                    x1 = cur_x
+                    x2 = branch_x
+                    if x1 > x2:
+                        x1, x2 = x2, x1
+
+                    for x in range(x1, x2):
+                        new_grid[to_idx(x, cur_y)] = FILLED
+                else:
+                    y1 = cur_y
+                    y2 = branch_y
+                    if y1 > y2:
+                        y1, y2 = y2, y1
+
+                    for y in range(y1, y2):
+                        new_grid[to_idx(cur_x, y)] = FILLED
+
+                print_grid(new_grid)
+
+            opt_grid = grid[:]
+            map_possible_points(opt_grid, path_options)
+
+            opt_grid[cur_idx] = FILLED
+            print("== showing possible silence routes ==")
+            print_grid(opt_grid)
+            print("=====================================")
+        else:
+            new_idx = move(tmp_grid, cur_idx, move_dir)
+            if new_idx == -1:
+                return -1
+
+            cur_idx = new_idx
+            tmp_grid[cur_idx] = FILLED
 
     print("----------------------")
     for idx, tgrid in enumerate(tmp_grids):
@@ -149,7 +234,7 @@ def valid_path(grid, start, moves):
             print()
     print("----------------------\n")
 
-    return True
+    return cur_idx
 
 def print_move_history(move_history):
     for move in move_history:
@@ -162,7 +247,9 @@ def print_move_history(move_history):
         elif move == EAST:
             print("EAST ", end='')
         elif move == SURFACE:
-            print("EAST ", end='')
+            print("SURFACE ", end='')
+        elif move == SILENCE:
+            print("SILENCE ", end='')
     print()
 
 def parse_historyfile(filename):
@@ -190,6 +277,8 @@ def parse_historyfile(filename):
             move_history.append(EAST)
         elif command == "SU":
             move_history.append(SURFACE)
+        elif command == "SI":
+            move_history.append(SILENCE)
 
     return (ship_pos, move_history)
 
@@ -217,10 +306,13 @@ grid = parse_mapfile(mapfile_name)
 
 print("Printing all possible move sets\n")
 valid_starts = []
+valid_ends = []
 for start_idx in range(GRID_WIDTH * GRID_HEIGHT):
     if is_open_space(grid, start_idx):
-        if valid_path(grid, start_idx, move_history):
+        end_idx = valid_path(grid, start_idx, move_history)
+        if end_idx != -1:
             valid_starts.append(start_idx)
+            valid_ends.append(end_idx)
 
 print("Printing all valid potential starting points\n")
 i = 1
@@ -232,5 +324,21 @@ for idx in valid_starts:
 print("\n")
 
 print("Graphing all valid potential starting points\n")
-map_valid_starts(grid, valid_starts)
-print_grid(grid)
+tmp_grid = grid[:]
+map_possible_points(tmp_grid, valid_starts)
+print_grid(tmp_grid)
+
+
+print("Printing all valid potential current points\n")
+i = 1
+for idx in valid_ends:
+    print("{}, ".format(v_idx(idx)), end='')
+    if (i % 5) == 0:
+        print("")
+    i += 1
+print("\n")
+
+print("Graphing all valid potential current points\n")
+tmp_grid = grid[:]
+map_possible_points(tmp_grid, valid_ends)
+print_grid(tmp_grid)
