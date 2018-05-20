@@ -126,115 +126,155 @@ def move(grid, ship_idx, direction):
 
     return new_idx
 
-def valid_path(grid, start, moves):
-    tmp_grids = []
-    tmp_grids.append(grid[:])
-    tmp_grid = tmp_grids[-1]
+def get_active_leaves(grid_tree):
+    if grid_tree.failed:
+        return []
 
-    cur_idx = start
-    tmp_grid[cur_idx] = FILLED
+    grid_leaves = []
+    if len(grid_tree.children) == 0:
+        grid_leaves += [grid_tree]
+    else:
+        for child in grid_tree.children:
+            grid_leaves += get_active_leaves(child)
+
+    return grid_leaves
+
+def get_all_leaves(grid_tree):
+    grid_leaves = [grid_tree]
+
+    for child in grid_tree.children:
+        grid_leaves += get_active_leaves(child)
+
+    return grid_leaves
+
+class GridNode:
+    def __init__(self):
+        self.grid = []
+        self.cur_idx = -1
+        self.children = []
+        self.failed = False
+
+def build_grid_tree(grid, start, moves):
+    grid_tree = GridNode()
+    grid_tree.grid = grid[:]
+    grid_tree.start_idx = start
+    grid_tree.cur_idx = start
+    grid_tree.grid[grid_tree.cur_idx] = FILLED
 
     for move_dir in moves:
         if move_dir == SURFACE:
-            tmp_grids.append(grid[:])
-            tmp_grid = tmp_grids[-1]
+            grid_nodes = get_active_leaves(grid_tree)
+            for grid_node in grid_nodes:
+
+                new_grid = GridNode()
+                new_grid.grid = grid[:]
+                new_grid.start_idx = start
+                new_grid.cur_idx = grid_node.cur_idx
+                grid_node.children.append(new_grid)
+
         elif move_dir == SILENCE:
-            continue # TODO: Finish building silence tree and establishing justified pruning
+            grid_nodes = get_active_leaves(grid_tree)
+            for grid_node in grid_nodes:
+                tmp_grid = grid_node.grid
 
-            path_options = []
+                path_options = []
 
-            n_idx = cur_idx
-            s_idx = cur_idx
-            w_idx = cur_idx
-            e_idx = cur_idx
+                cur_idx = grid_node.cur_idx
+                n_idx = cur_idx
+                s_idx = cur_idx
+                w_idx = cur_idx
+                e_idx = cur_idx
 
-            for i in range(0, 4):
-                if n_idx != -1:
-                    n_idx = move(tmp_grid, n_idx, NORTH)
+                for i in range(0, 4):
                     if n_idx != -1:
-                        path_options.append(n_idx)
+                        n_idx = move(tmp_grid, n_idx, NORTH)
+                        if n_idx != -1:
+                            path_options.append(n_idx)
 
-                if s_idx != -1:
-                    s_idx = move(tmp_grid, s_idx, SOUTH)
                     if s_idx != -1:
-                        path_options.append(s_idx)
+                        s_idx = move(tmp_grid, s_idx, SOUTH)
+                        if s_idx != -1:
+                            path_options.append(s_idx)
 
-                if w_idx != -1:
-                    w_idx = move(tmp_grid, w_idx, WEST)
                     if w_idx != -1:
-                        path_options.append(w_idx)
+                        w_idx = move(tmp_grid, w_idx, WEST)
+                        if w_idx != -1:
+                            path_options.append(w_idx)
 
-                if e_idx != -1:
-                    e_idx = move(tmp_grid, e_idx, EAST)
                     if e_idx != -1:
-                        path_options.append(e_idx)
+                        e_idx = move(tmp_grid, e_idx, EAST)
+                        if e_idx != -1:
+                            path_options.append(e_idx)
 
-            path_options.append(cur_idx)
+                path_options.append(cur_idx)
 
-            new_branches = len(path_options)
+                new_branches = len(path_options)
 
-            (cur_x, cur_y) = to_coords(cur_idx)
+                (cur_x, cur_y) = to_coords(cur_idx)
 
-            new_grids = []
-            for branch_idx in path_options:
-                new_grid = tmp_grid[:]
-                new_grids.append(new_grid)
+                for branch_idx in path_options:
+                    new_grid = tmp_grid[:]
 
-                (branch_x, branch_y) = to_coords(branch_idx)
+                    (branch_x, branch_y) = to_coords(branch_idx)
 
-                dist_y = branch_y - cur_y
-                dist_x = branch_x - cur_x
+                    dist_y = branch_y - cur_y
+                    dist_x = branch_x - cur_x
 
-                new_grid[branch_idx] = FILLED
-                new_grid[cur_idx] = FILLED
+                    horiz = False
+                    if abs(dist_x) > abs(dist_y):
+                        horiz = True
 
-                horiz = False
-                if abs(dist_x) > abs(dist_y):
-                    horiz = True
+                    if horiz:
+                        x1 = cur_x
+                        x2 = branch_x
+                        if x1 > x2:
+                            x1, x2 = x2, x1
 
-                if horiz:
-                    x1 = cur_x
-                    x2 = branch_x
-                    if x1 > x2:
-                        x1, x2 = x2, x1
+                        for x in range(x1, x2):
+                            new_grid[to_idx(x, cur_y)] = FILLED
+                    else:
+                        y1 = cur_y
+                        y2 = branch_y
+                        if y1 > y2:
+                            y1, y2 = y2, y1
 
-                    for x in range(x1, x2):
-                        new_grid[to_idx(x, cur_y)] = FILLED
-                else:
-                    y1 = cur_y
-                    y2 = branch_y
-                    if y1 > y2:
-                        y1, y2 = y2, y1
+                        for y in range(y1, y2):
+                            new_grid[to_idx(cur_x, y)] = FILLED
 
-                    for y in range(y1, y2):
-                        new_grid[to_idx(cur_x, y)] = FILLED
+                    new_grid[branch_idx] = FILLED
+                    new_grid[cur_idx] = FILLED
 
-                print_grid(new_grid)
+                    new_node = GridNode()
+                    new_node.start_idx = start
+                    new_node.grid = new_grid
+                    new_node.cur_idx = branch_idx
+                    grid_node.children.append(new_node)
 
-            opt_grid = grid[:]
-            map_possible_points(opt_grid, path_options)
+                    print_grid(new_node.grid)
 
-            opt_grid[cur_idx] = FILLED
-            print("== showing possible silence routes ==")
-            print_grid(opt_grid)
-            print("=====================================")
+                opt_grid = grid[:]
+                map_possible_points(opt_grid, path_options)
+
+                opt_grid[cur_idx] = FILLED
+                print("== showing possible silence routes ==")
+                print_grid(opt_grid)
+                print("=====================================")
         else:
-            new_idx = move(tmp_grid, cur_idx, move_dir)
-            if new_idx == -1:
-                return -1
+            grid_nodes = get_active_leaves(grid_tree)
+            for grid_node in grid_nodes:
+                tmp_grid = grid_node.grid
+                cur_idx = grid_node.cur_idx
 
-            cur_idx = new_idx
-            tmp_grid[cur_idx] = FILLED
+                new_idx = move(tmp_grid, cur_idx, move_dir)
+                if new_idx == -1:
+                    grid_node.failed = True
+                    continue
 
-    print("----------------------")
-    for idx, tgrid in enumerate(tmp_grids):
-        print_grid(tgrid)
+                cur_idx = new_idx
+                tmp_grid[cur_idx] = FILLED
+                grid_node.cur_idx = cur_idx
 
-        if idx != len(tmp_grids) - 1:
-            print()
-    print("----------------------\n")
-
-    return cur_idx
+    return grid_tree
 
 def print_move_history(move_history):
     for move in move_history:
@@ -309,10 +349,15 @@ valid_starts = []
 valid_ends = []
 for start_idx in range(GRID_WIDTH * GRID_HEIGHT):
     if is_open_space(grid, start_idx):
-        end_idx = valid_path(grid, start_idx, move_history)
-        if end_idx != -1:
-            valid_starts.append(start_idx)
-            valid_ends.append(end_idx)
+        grid_tree = build_grid_tree(grid, start_idx, move_history)
+
+        grid_nodes = get_active_leaves(grid_tree)
+        for grid_node in grid_nodes:
+            valid_ends.append(grid_node.cur_idx)
+            valid_starts.append(grid_node.start_idx)
+
+valid_starts = set(valid_starts)
+valid_ends = set(valid_ends)
 
 print("Printing all valid potential starting points\n")
 i = 1
