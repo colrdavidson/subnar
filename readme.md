@@ -7,15 +7,15 @@ and then spits out every possible location for subs.
 Alpha, Beta, and Zeta maps are included for solution paring.
 
 ## Ship History Format:
-N, S, W, E -- Announced Heading (Head: North, South, West, East)
-SI -- Activate Silence (limits the movement/direction space to linear paths of limited distance)
-SU -- Surface (announces current sector of submarine in game, subnar doesn't currently ingest sector info)
+- N, S, W, E -- Announced Heading (Head: North, South, West, East)
+- SI -- Activate Silence (limits the movement/direction space to linear paths of limited distance)
+- SU -- Surface (announces current sector of submarine in game, subnar doesn't currently ingest sector info)
 
 ## Result Graph Format:
-o -- Possible sub piece location
-+ -- Known sub piece location
-. -- Known empty location
-* -- Location blocked by terrain (sub can't be here)
+- `o` -- Possible sub piece location
+- `+` -- Known sub piece location
+- `.` -- Known empty location
+- `*` -- Location blocked by terrain (sub can't be here)
 
 ## Example
 Ship History:
