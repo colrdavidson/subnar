@@ -1,7 +1,7 @@
 # subnar
 Tool for analysis of Captain Sonar game board state space
 
-subnar ingests the game map and shorthand for moves from each side, 
+subnar ingests the game map and shorthand for moves from one side, 
 and then spits out every possible location for subs.
 
 Alpha, Beta, and Zeta maps are included for solution paring.
