@@ -2,7 +2,7 @@
 Tool for analysis of Captain Sonar game board state space
 
 subnar ingests the game map and shorthand for moves from one side, 
-and then spits out every possible location for subs.
+and then spits out every possible start and end location for one team's sub.
 
 Alpha, Beta, and Zeta maps are included for solution paring.
 
