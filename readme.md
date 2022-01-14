@@ -9,7 +9,7 @@ Alpha, Tri, and Zeta turn-based maps are included for solution paring.
 ## Ship History Format:
 - N, S, W, E -- Announced Heading (Head: North, South, West, East)
 - SI -- Activate Silence (limits the movement/direction space to linear paths of limited distance)
-- SU <sector number> -- Surface (announces current sector of submarine in game, subnar doesn't currently use sector info)
+- SU `<sector number>` -- Surface (announces current sector of submarine in game, subnar doesn't currently use sector info)
 
 ## Result Graph Format:
 - `o` -- Possible sub piece location
