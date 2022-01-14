@@ -1,11 +1,5 @@
 import sys
 
-GRID_HEIGHT = 10
-GRID_WIDTH = 10
-
-X_SECTORS = 1
-Y_SECTORS = 1
-
 BLOCKED = "*"
 FILLED = "+"
 UNFILLED = "."
@@ -18,52 +12,55 @@ EAST = 4
 SURFACE = 5
 SILENCE = 6
 
-def to_coords(idx):
-    return (int(idx % GRID_WIDTH), int(idx / GRID_WIDTH))
+def to_coords(width, idx):
+    return (int(idx % width), int(idx / width))
 
-def to_idx(x, y):
-    return y * GRID_WIDTH + x
+def to_idx(width, x, y):
+    return y * width + x
 
-def init_grid():
+def init_grid(width, height):
     grid = []
-    for i in range(GRID_WIDTH):
-        for j in range(GRID_HEIGHT):
+    for i in range(width):
+        for j in range(height):
             grid.append(UNFILLED)
     return grid
 
-def print_grid(grid):
+def print_grid(grid, width, height, x_sectors, y_sectors):
+
+    # generate top headers (A -> J)
     print("   ", end='')
-    for i in range(GRID_WIDTH):
-        if (i % int(GRID_WIDTH / X_SECTORS)) == 0:
+    for i in range(width):
+        if (i % int(width / x_sectors)) == 0:
             print("  ", end='')
         print("{} ".format(chr(i + 97).upper()), end='')
     print()
 
-    for i in range(GRID_HEIGHT):
-
-        if (i % int(GRID_HEIGHT / Y_SECTORS)) == 0:
+    # Fill with number, spacer, row data, and end spacer
+    for i in range(height):
+        if (i % int(height / y_sectors)) == 0:
             print('   ', end='')
-            for j in range(GRID_WIDTH):
-                if (j % int(GRID_HEIGHT / Y_SECTORS)) == 0:
+            for j in range(width):
+                if (j % int(height / y_sectors)) == 0:
                     print('  ', end='')
                 print('- ', end='')
             print()
 
         print("{:>2} ".format(i + 1), end='')
-        for j in range(GRID_WIDTH + 1):
-            if j == GRID_WIDTH:
+        for j in range(width + 1):
+            if j == width:
                 print('|')
                 break
 
-            if (j % int(GRID_HEIGHT / Y_SECTORS)) == 0:
+            if (j % int(height / y_sectors)) == 0:
                 print("| ", end='')
 
-            idx = i * GRID_WIDTH + j
+            idx = i * width + j
             print("{} ".format(grid[idx]), end='')
 
+    # generate end cap
     print('   ', end='')
-    for j in range(GRID_WIDTH):
-        if (j % int(GRID_HEIGHT / Y_SECTORS)) == 0:
+    for j in range(width):
+        if (j % int(height / y_sectors)) == 0:
             print('  ', end='')
         print('- ', end='')
     print()
@@ -73,17 +70,17 @@ def map_possible_points(grid, possible_points):
         grid[idx] = POSSIBLE
 
 # Generates grid appropriate index from human readable index
-def g_idx(idx_str):
+def g_idx(width, idx_str):
     tmp_str = idx_str.lower()
     x = ord(tmp_str[0]) - 97
     y = int(tmp_str[1:]) - 1
 
-    idx = y * GRID_WIDTH + x
+    idx = y * width + x
     return idx
 
 # Generates human readable index from grid appropriate index
-def v_idx(idx):
-    (x, y) = to_coords(idx)
+def v_idx(width, idx):
+    (x, y) = to_coords(width, idx)
     idx_str = "{}{}".format(chr(x + 97).upper(), y + 1)
 
     return idx_str
@@ -93,17 +90,17 @@ def is_open_space(grid, idx):
         return False
     return True
 
-def is_valid_space(grid, x, y):
-    idx = y * GRID_WIDTH + x
+def is_valid_space(grid, width, height, x, y):
+    idx = y * width + x
 
-    if x < 0 or x >= GRID_WIDTH or y < 0 or y >= GRID_HEIGHT or \
+    if x < 0 or x >= width or y < 0 or y >= height or \
             not is_open_space(grid, idx):
         return False
 
     return True
 
-def move(grid, ship_idx, direction):
-    (ship_x, ship_y) = to_coords(ship_idx)
+def move(grid, width, height, ship_idx, direction):
+    (ship_x, ship_y) = to_coords(width, ship_idx)
 
     new_x = ship_x
     new_y = ship_y
@@ -117,12 +114,12 @@ def move(grid, ship_idx, direction):
     elif direction == EAST:
         new_x += 1
 
-    if not is_valid_space(grid, new_x, new_y):
+    if not is_valid_space(grid, width, height, new_x, new_y):
         return -1
 
     # print("({},{}) -> ({},{})".format(ship_x, ship_y, new_x, new_y))
 
-    new_idx = to_idx(new_x, new_y)
+    new_idx = to_idx(width, new_x, new_y)
 
     return new_idx
 
@@ -154,14 +151,14 @@ class GridNode:
         self.children = []
         self.failed = False
 
-def build_grid_tree(grid, start, moves):
+def build_grid_tree(grid, width, height, x_sectors, y_sectors, start, moves):
     grid_tree = GridNode()
     grid_tree.grid = grid[:]
     grid_tree.start_idx = start
     grid_tree.cur_idx = start
     grid_tree.grid[grid_tree.cur_idx] = FILLED
 
-    for move_dir in moves:
+    for (move_dir, extra) in moves:
         if move_dir == SURFACE:
             grid_nodes = get_active_leaves(grid_tree)
             for grid_node in grid_nodes:
@@ -187,22 +184,22 @@ def build_grid_tree(grid, start, moves):
 
                 for i in range(0, 4):
                     if n_idx != -1:
-                        n_idx = move(tmp_grid, n_idx, NORTH)
+                        n_idx = move(tmp_grid, width, height, n_idx, NORTH)
                         if n_idx != -1:
                             path_options.append(n_idx)
 
                     if s_idx != -1:
-                        s_idx = move(tmp_grid, s_idx, SOUTH)
+                        s_idx = move(tmp_grid, width, height, s_idx, SOUTH)
                         if s_idx != -1:
                             path_options.append(s_idx)
 
                     if w_idx != -1:
-                        w_idx = move(tmp_grid, w_idx, WEST)
+                        w_idx = move(tmp_grid, width, height, w_idx, WEST)
                         if w_idx != -1:
                             path_options.append(w_idx)
 
                     if e_idx != -1:
-                        e_idx = move(tmp_grid, e_idx, EAST)
+                        e_idx = move(tmp_grid, width, height, e_idx, EAST)
                         if e_idx != -1:
                             path_options.append(e_idx)
 
@@ -210,12 +207,12 @@ def build_grid_tree(grid, start, moves):
 
                 new_branches = len(path_options)
 
-                (cur_x, cur_y) = to_coords(cur_idx)
+                (cur_x, cur_y) = to_coords(width, cur_idx)
 
                 for branch_idx in path_options:
                     new_grid = tmp_grid[:]
 
-                    (branch_x, branch_y) = to_coords(branch_idx)
+                    (branch_x, branch_y) = to_coords(width, branch_idx)
 
                     dist_y = branch_y - cur_y
                     dist_x = branch_x - cur_x
@@ -231,7 +228,7 @@ def build_grid_tree(grid, start, moves):
                             x1, x2 = x2, x1
 
                         for x in range(x1, x2):
-                            new_grid[to_idx(x, cur_y)] = FILLED
+                            new_grid[to_idx(width, x, cur_y)] = FILLED
                     else:
                         y1 = cur_y
                         y2 = branch_y
@@ -239,7 +236,7 @@ def build_grid_tree(grid, start, moves):
                             y1, y2 = y2, y1
 
                         for y in range(y1, y2):
-                            new_grid[to_idx(cur_x, y)] = FILLED
+                            new_grid[to_idx(width, cur_x, y)] = FILLED
 
                     new_grid[branch_idx] = FILLED
                     new_grid[cur_idx] = FILLED
@@ -250,14 +247,14 @@ def build_grid_tree(grid, start, moves):
                     new_node.cur_idx = branch_idx
                     grid_node.children.append(new_node)
 
-                    print_grid(new_node.grid)
+                    print_grid(new_node.grid, width, height, x_sectors, y_sectors)
 
                 opt_grid = grid[:]
                 map_possible_points(opt_grid, path_options)
 
                 opt_grid[cur_idx] = FILLED
                 print("== showing possible silence routes ==")
-                print_grid(opt_grid)
+                print_grid(opt_grid, width, height, x_sectors, y_sectors)
                 print("=====================================")
         else:
             grid_nodes = get_active_leaves(grid_tree)
@@ -265,7 +262,7 @@ def build_grid_tree(grid, start, moves):
                 tmp_grid = grid_node.grid
                 cur_idx = grid_node.cur_idx
 
-                new_idx = move(tmp_grid, cur_idx, move_dir)
+                new_idx = move(tmp_grid, width, height, cur_idx, move_dir)
                 if new_idx == -1:
                     grid_node.failed = True
                     continue
@@ -277,7 +274,7 @@ def build_grid_tree(grid, start, moves):
     return grid_tree
 
 def print_move_history(move_history):
-    for move in move_history:
+    for (move, extra) in move_history:
         if move == NORTH:
             print("NORTH ", end='')
         elif move == SOUTH:
@@ -292,7 +289,7 @@ def print_move_history(move_history):
             print("SILENCE ", end='')
     print()
 
-def parse_historyfile(filename):
+def parse_historyfile(filename, x_sectors, y_sectors):
     history_txt = ""
     with open(filename, "r") as f:
         history_txt = f.read()
@@ -308,17 +305,32 @@ def parse_historyfile(filename):
     move_history = []
     for command in commands[start_idx:]:
         if command == "N":
-            move_history.append(NORTH)
+            move_history.append((NORTH, 0))
         elif command == "S":
-            move_history.append(SOUTH)
+            move_history.append((SOUTH, 0))
         elif command == "W":
-            move_history.append(WEST)
+            move_history.append((WEST, 0))
         elif command == "E":
-            move_history.append(EAST)
-        elif command == "SU":
-            move_history.append(SURFACE)
+            move_history.append((EAST, 0))
         elif command == "SI":
-            move_history.append(SILENCE)
+            move_history.append((SILENCE, 0))
+        else:
+            if len(command) > 3 and command[:2] == "SU" and command[2:3] == " ":
+                try:
+                    sector = int(command[3:])
+                except ValueError:
+                    print("Surface sector is not an integer")
+                    sys.exit(1)
+
+                max_sector = x_sectors * y_sectors
+                if sector > max_sector or sector < 1:
+                    print("Surface has an invalid sector")
+                    sys.exit(1)
+
+                move_history.append((SURFACE, sector))
+            else:
+                print("Surface move should have a defined integer sector")
+                sys.exit(1)
 
     return (ship_pos, move_history)
 
@@ -327,12 +339,28 @@ def parse_mapfile(filename):
     with open(filename, "r") as f:
         map_txt = f.read()
 
-    grid = init_grid()
-    positions = map_txt.splitlines()
-    for position in positions:
-        grid[g_idx(position)] = BLOCKED
+    lines = map_txt.splitlines()
 
-    return grid
+    if len(lines) < 4:
+        print("Mapfile is invalid, must contain a grid size header!")
+        sys.exit(1)
+
+    try:
+        grid_height = int(lines[0])
+        grid_width  = int(lines[1])
+        x_sectors   = int(lines[2])
+        y_sectors   = int(lines[3])
+    except ValueError:
+        print("Mapfile grid header is invalid! Header info should be integers")
+        sys.exit(1)
+
+    grid = init_grid(grid_width, grid_height)
+
+    positions = lines[4:]
+    for position in positions:
+        grid[g_idx(grid_width, position)] = BLOCKED
+
+    return grid, grid_height, grid_width, x_sectors, y_sectors
 
 if len(sys.argv) != 3:
     print("Expects {} <map file> <history file>".format(sys.argv[0]))
@@ -341,15 +369,15 @@ if len(sys.argv) != 3:
 mapfile_name = sys.argv[1]
 historyfile_name = sys.argv[2]
 
-grid = parse_mapfile(mapfile_name)
-(ship_pos, move_history) = parse_historyfile(historyfile_name)
+grid, grid_width, grid_height, x_sectors, y_sectors = parse_mapfile(mapfile_name)
+(ship_pos, move_history) = parse_historyfile(historyfile_name, x_sectors, y_sectors)
 
 print("Printing all possible move sets\n")
 valid_starts = []
 valid_ends = []
-for start_idx in range(GRID_WIDTH * GRID_HEIGHT):
+for start_idx in range(grid_width * grid_height):
     if is_open_space(grid, start_idx):
-        grid_tree = build_grid_tree(grid, start_idx, move_history)
+        grid_tree = build_grid_tree(grid, grid_width, grid_height, x_sectors, y_sectors, start_idx, move_history)
 
         grid_nodes = get_active_leaves(grid_tree)
         for grid_node in grid_nodes:
@@ -362,7 +390,7 @@ valid_ends = set(valid_ends)
 print("Printing all valid potential starting points\n")
 i = 1
 for idx in valid_starts:
-    print("{}, ".format(v_idx(idx)), end='')
+    print("{}, ".format(v_idx(grid_width, idx)), end='')
     if (i % 5) == 0:
         print("")
     i += 1
@@ -371,13 +399,13 @@ print("\n")
 print("Graphing all valid potential starting points\n")
 tmp_grid = grid[:]
 map_possible_points(tmp_grid, valid_starts)
-print_grid(tmp_grid)
+print_grid(tmp_grid, grid_width, grid_height, x_sectors, y_sectors)
 
 
 print("Printing all valid potential current points\n")
 i = 1
 for idx in valid_ends:
-    print("{}, ".format(v_idx(idx)), end='')
+    print("{}, ".format(v_idx(grid_width, idx)), end='')
     if (i % 5) == 0:
         print("")
     i += 1
@@ -386,4 +414,4 @@ print("\n")
 print("Graphing all valid potential current points\n")
 tmp_grid = grid[:]
 map_possible_points(tmp_grid, valid_ends)
-print_grid(tmp_grid)
+print_grid(tmp_grid, grid_width, grid_height, x_sectors, y_sectors)
