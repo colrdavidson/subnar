@@ -112,9 +112,7 @@ def grid_idx_to_sector_idx(idx, width, height, x_sectors, y_sectors):
     sect_x = rerange(x, width, x_sectors)
     sect_y = rerange(y, height, y_sectors)
 
-    sect_width = int(width / x_sectors)
-
-    sect_idx = sect_y * sect_width + sect_x
+    sect_idx = sect_y * x_sectors + sect_x
     return sect_idx
 
 def move(grid, width, height, ship_idx, direction):
