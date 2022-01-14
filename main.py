@@ -69,7 +69,7 @@ def map_possible_points(grid, possible_points):
     for idx in possible_points:
         grid[idx] = POSSIBLE
 
-# Generates grid appropriate index from human readable index
+# Generates grid appropriate index from human readable index (A1 -> 0)
 def g_idx(width, idx_str):
     tmp_str = idx_str.lower()
     x = ord(tmp_str[0]) - 97
@@ -78,7 +78,7 @@ def g_idx(width, idx_str):
     idx = y * width + x
     return idx
 
-# Generates human readable index from grid appropriate index
+# Generates human readable index from grid appropriate index (0 -> A1)
 def v_idx(width, idx):
     (x, y) = to_coords(width, idx)
     idx_str = "{}{}".format(chr(x + 97).upper(), y + 1)
@@ -98,6 +98,24 @@ def is_valid_space(grid, width, height, x, y):
         return False
 
     return True
+
+# assumes minimum stays the same (0)
+def rerange(value, old_max, new_max):
+    return int((value * new_max) / old_max)
+
+# turns grid flat idx into sector flat idx
+# for grid 4x4 with 2x2 sectors: grid(9) => grid(1, 2) -> sector(1, 0) => sector(2)
+def grid_idx_to_sector_idx(idx, width, height, x_sectors, y_sectors):
+    x = int(idx % width)
+    y = int(idx / width)
+
+    sect_x = rerange(x, width, x_sectors)
+    sect_y = rerange(y, height, y_sectors)
+
+    sect_width = int(width / x_sectors)
+
+    sect_idx = sect_y * sect_width + sect_x
+    return sect_idx
 
 def move(grid, width, height, ship_idx, direction):
     (ship_x, ship_y) = to_coords(width, ship_idx)
@@ -144,6 +162,8 @@ def get_all_leaves(grid_tree):
 
     return grid_leaves
 
+
+
 class GridNode:
     def __init__(self):
         self.grid = []
@@ -158,19 +178,34 @@ def build_grid_tree(grid, width, height, x_sectors, y_sectors, start, moves):
     grid_tree.cur_idx = start
     grid_tree.grid[grid_tree.cur_idx] = FILLED
 
+    silenced = False
+
     for (move_dir, extra) in moves:
+        grid_nodes = get_active_leaves(grid_tree)
         if move_dir == SURFACE:
-            grid_nodes = get_active_leaves(grid_tree)
+            if not silenced:
+                print("Must silence before surfacing")
+                sys.exit(1)
+            silenced = False
+
             for grid_node in grid_nodes:
 
-                new_grid = GridNode()
-                new_grid.grid = grid[:]
-                new_grid.start_idx = start
-                new_grid.cur_idx = grid_node.cur_idx
-                grid_node.children.append(new_grid)
+                sector_idx = grid_idx_to_sector_idx(grid_node.cur_idx, width, height, x_sectors, y_sectors)
+                if extra == sector_idx:
+                    new_grid = GridNode()
+                    new_grid.grid = grid[:]
+                    new_grid.start_idx = start
+                    new_grid.cur_idx = grid_node.cur_idx
+                    grid_node.children.append(new_grid)
+                else:
+                    grid_node.failed = True
 
         elif move_dir == SILENCE:
-            grid_nodes = get_active_leaves(grid_tree)
+            if silenced:
+                print("Can't silence while silenced!")
+                sys.exit(1)
+            silenced = True
+
             for grid_node in grid_nodes:
                 tmp_grid = grid_node.grid
 
@@ -257,7 +292,6 @@ def build_grid_tree(grid, width, height, x_sectors, y_sectors, start, moves):
                 print_grid(opt_grid, width, height, x_sectors, y_sectors)
                 print("=====================================")
         else:
-            grid_nodes = get_active_leaves(grid_tree)
             for grid_node in grid_nodes:
                 tmp_grid = grid_node.grid
                 cur_idx = grid_node.cur_idx
@@ -327,7 +361,9 @@ def parse_historyfile(filename, x_sectors, y_sectors):
                     print("Surface has an invalid sector")
                     sys.exit(1)
 
-                move_history.append((SURFACE, sector))
+                internal_sector = sector - 1
+
+                move_history.append((SURFACE, internal_sector))
             else:
                 print("Surface move should have a defined integer sector")
                 sys.exit(1)
