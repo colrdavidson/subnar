@@ -40,12 +40,10 @@ def print_grid(grid, width, height, x_sectors, y_sectors):
     sect_width = int(width / x_sectors)
 
     # generate top headers (A -> J)
-    print("   ", end='')
+    print("  ", end='')
     for i in range(width):
         if i == 0:
             print('   ', end='')
-        elif (i % sect_width) == 0:
-            print('  ', end='')
         print("{}   ".format(chr(i + 97).upper()), end='')
     print()
 
@@ -55,11 +53,15 @@ def print_grid(grid, width, height, x_sectors, y_sectors):
             print('   ', end='')
             for j in range(width):
                 if (j % sect_height) == 0:
-                    print('+ ', end='')
-                print('- - ', end='')
-            print(" +")
+                    print('+', end='')
+                if ((j - (sect_height - 1)) % sect_height) == 0:
+                    print('- -', end='')
+                else:
+                    print('- - ', end='')
+                    
+            print("+")
 
-        print("{:>2} ".format(i + 1), end='')
+        print("{:>2}  ".format(i + 1), end='')
         for j in range(width + 1):
             if j == width:
                 print(' ')
@@ -71,27 +73,33 @@ def print_grid(grid, width, height, x_sectors, y_sectors):
 
                 for k in range(1, width):
                     if (k % sect_width) == 0:
-                        print('     |', end='')
+                        print('   |', end='')
                     else:
                         print("    ", end='')
-                print("      |")
+                print("   |")
                 break
 
             if (j % sect_height) == 0:
-                print("  ", end='')
+                print(" ", end='')
 
             idx = i * width + j
 
             item_str = fmt_item(grid[idx])
-            print(" {}  ".format(item_str), end='')
+            if ((j - (sect_height - 1)) % sect_height) == 0:
+                print("{}  ".format(item_str), end='')
+            else:
+                print("{}   ".format(item_str), end='')
 
     # generate end cap
     print('   ', end='')
     for j in range(width):
         if (j % sect_height) == 0:
-            print('+ ', end='')
-        print('- - ', end='')
-    print(" +")
+            print('+', end='')
+        if ((j - (sect_height - 1)) % sect_height) == 0:
+            print('- -', end='')
+        else:
+            print('- - ', end='')
+    print("+")
 
 def map_possible_points(grid, possible_points):
     for idx in possible_points:
@@ -501,6 +509,7 @@ grid, grid_width, grid_height, x_sectors, y_sectors = parse_mapfile(mapfile_name
 
 valid_starts = []
 valid_ends = []
+valid_pairs = []
 for start_idx in range(grid_width * grid_height):
     if is_open_space(grid, start_idx):
         grid_tree = build_grid_tree(grid, grid_width, grid_height, x_sectors, y_sectors, start_idx, move_history)
@@ -509,38 +518,24 @@ for start_idx in range(grid_width * grid_height):
         for grid_node in grid_nodes:
             valid_ends.append(grid_node.cur_idx)
             valid_starts.append(grid_node.start_idx)
+            valid_pairs.append((grid_node.start_idx, grid_node.cur_idx))
 
 valid_starts = set(valid_starts)
 valid_ends = set(valid_ends)
-
-'''
-print("Printing all valid potential starting points\n")
-i = 1
-for idx in valid_starts:
-    print("{}, ".format(v_idx(grid_width, idx)), end='')
-    if (i % 5) == 0:
-        print("")
-    i += 1
-print("\n")
-'''
+valid_pairs = set(valid_pairs)
 
 print("Graphing all valid/possible sub starting locations\n")
 tmp_grid = grid[:]
 map_possible_points(tmp_grid, valid_starts)
 print_grid(tmp_grid, grid_width, grid_height, x_sectors, y_sectors)
 
-'''
-print("Printing all valid potential current points\n")
-i = 1
-for idx in valid_ends:
-    print("{}, ".format(v_idx(grid_width, idx)), end='')
-    if (i % 5) == 0:
-        print("")
-    i += 1
-print("\n")
-'''
-
 print("Graphing all valid possible sub current locations\n")
 tmp_grid = grid[:]
 map_possible_points(tmp_grid, valid_ends)
 print_grid(tmp_grid, grid_width, grid_height, x_sectors, y_sectors)
+
+'''
+tmp_grid = grid[:]
+for path_pair in valid_pairs:
+    print_grid(tmp_grid, grid_width, grid_height, x_sectors, y_sectors, move_history, path_pair)
+'''
