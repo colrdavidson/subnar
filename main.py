@@ -26,45 +26,72 @@ def init_grid(width, height):
             grid.append(UNFILLED)
     return grid
 
+def fmt_item(val):
+    if val == BLOCKED:
+        return u"\u001b[31m{}\u001b[0m".format(val)
+    elif val == POSSIBLE:
+        return u"\u001b[36m{}\u001b[0m".format(val)
+    else:
+        return "{}".format(val)
+
 def print_grid(grid, width, height, x_sectors, y_sectors):
+
+    sect_height = int(height / y_sectors)
+    sect_width = int(width / x_sectors)
 
     # generate top headers (A -> J)
     print("   ", end='')
     for i in range(width):
-        if (i % int(width / x_sectors)) == 0:
-            print("  ", end='')
-        print("{} ".format(chr(i + 97).upper()), end='')
+        if i == 0:
+            print('   ', end='')
+        elif (i % sect_width) == 0:
+            print('  ', end='')
+        print("{}   ".format(chr(i + 97).upper()), end='')
     print()
 
     # Fill with number, spacer, row data, and end spacer
     for i in range(height):
-        if (i % int(height / y_sectors)) == 0:
+        if (i % sect_height) == 0:
             print('   ', end='')
             for j in range(width):
-                if (j % int(height / y_sectors)) == 0:
-                    print('  ', end='')
-                print('- ', end='')
-            print()
+                if (j % sect_height) == 0:
+                    print('+ ', end='')
+                print('- - ', end='')
+            print(" +")
 
         print("{:>2} ".format(i + 1), end='')
         for j in range(width + 1):
             if j == width:
-                print('|')
+                print(' ')
+
+                if ((i - (sect_height - 1)) % sect_height) == 0:
+                    break
+
+                print("   |", end='')
+
+                for k in range(1, width):
+                    if (k % sect_width) == 0:
+                        print('     |', end='')
+                    else:
+                        print("    ", end='')
+                print("      |")
                 break
 
-            if (j % int(height / y_sectors)) == 0:
-                print("| ", end='')
+            if (j % sect_height) == 0:
+                print("  ", end='')
 
             idx = i * width + j
-            print("{} ".format(grid[idx]), end='')
+
+            item_str = fmt_item(grid[idx])
+            print(" {}  ".format(item_str), end='')
 
     # generate end cap
     print('   ', end='')
     for j in range(width):
-        if (j % int(height / y_sectors)) == 0:
-            print('  ', end='')
-        print('- ', end='')
-    print()
+        if (j % sect_height) == 0:
+            print('+ ', end='')
+        print('- - ', end='')
+    print(" +")
 
 def map_possible_points(grid, possible_points):
     for idx in possible_points:
@@ -161,7 +188,37 @@ def get_all_leaves(grid_tree):
 
     return grid_leaves
 
+'''
+class ShipState:
+    def __init__(self):
+        self.torpedos = [] * 6 # [W, N, N, S, S, E]
+        self.silence  = [] * 6 # [W, N, N, S, S, E]
+        self.sonar    = [] * 6 # [W, W, N, S, E, E]
+        self.reactors = [] * 6 # [W, W, N, S, E, E]
 
+        self.children = []
+        self.failed = False
+
+def build_ship_tree(moves):
+    ship_tree = ShipState()
+
+    for (move_dir, extra) in moves:
+        new_state = ShipState()
+
+        elif move_dir == NORTH:
+            new_state.west  = ship_tree.west[:]
+            new_state.north = ship_tree.north[:]
+            new_state.south = ship_tree.south[:]
+            new_state.east  = ship_tree.east[:]
+
+            new_state.north[
+        elif move_dir == SOUTH:
+            self.souths += 1
+        elif move_dir == WEST:
+            self.wests += 1
+        elif move_dir == EAST:
+            self.easts += 1
+'''
 
 class GridNode:
     def __init__(self):
@@ -179,6 +236,8 @@ def build_grid_tree(grid, width, height, x_sectors, y_sectors, start, moves):
 
     for (move_dir, extra) in moves:
         grid_nodes = get_active_leaves(grid_tree)
+
+        # surface clears out old paths, so it's wiping the board clean
         if move_dir == SURFACE:
             for grid_node in grid_nodes:
 
@@ -196,13 +255,7 @@ def build_grid_tree(grid, width, height, x_sectors, y_sectors, start, moves):
             for grid_node in grid_nodes:
 
                 sector_idx = grid_idx_to_sector_idx(grid_node.cur_idx, width, height, x_sectors, y_sectors)
-                if sector_idx in extra:
-                    new_grid = GridNode()
-                    new_grid.grid = grid[:]
-                    new_grid.start_idx = start
-                    new_grid.cur_idx = grid_node.cur_idx
-                    grid_node.children.append(new_grid)
-                else:
+                if sector_idx not in extra:
                     grid_node.failed = True
 
         elif move_dir == SILENCE:
@@ -352,8 +405,6 @@ def parse_historyfile(filename, x_sectors, y_sectors):
             move_history.append((SILENCE, 0))
         else:
             pieces = command.split()
-            if len(pieces) <= 1:
-                sys.exit(1)
 
             if pieces[0] == "SU":
                 if len(pieces) != 2:
@@ -448,7 +499,6 @@ historyfile_name = sys.argv[2]
 grid, grid_width, grid_height, x_sectors, y_sectors = parse_mapfile(mapfile_name)
 (ship_pos, move_history) = parse_historyfile(historyfile_name, x_sectors, y_sectors)
 
-print("Printing all possible move sets\n")
 valid_starts = []
 valid_ends = []
 for start_idx in range(grid_width * grid_height):
@@ -474,7 +524,7 @@ for idx in valid_starts:
 print("\n")
 '''
 
-print("Graphing all valid potential starting points\n")
+print("Graphing all valid/possible sub starting locations\n")
 tmp_grid = grid[:]
 map_possible_points(tmp_grid, valid_starts)
 print_grid(tmp_grid, grid_width, grid_height, x_sectors, y_sectors)
@@ -490,7 +540,7 @@ for idx in valid_ends:
 print("\n")
 '''
 
-print("Graphing all valid potential current points\n")
+print("Graphing all valid possible sub current locations\n")
 tmp_grid = grid[:]
 map_possible_points(tmp_grid, valid_ends)
 print_grid(tmp_grid, grid_width, grid_height, x_sectors, y_sectors)
