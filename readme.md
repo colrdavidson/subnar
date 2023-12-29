@@ -10,6 +10,7 @@ Alpha, Tri, and Zeta turn-based maps are included for solution paring.
 - N, S, W, E -- Announced Heading (Head: North, South, West, East)
 - SI -- Activate Silence (limits the movement/direction space to linear paths of limited distance)
 - SU `<sector number>` -- Surface (announces current sector of submarine in game, allows large possible value paring)
+- DR `<sector number> <Y/N>` -- Drone (gets a yes or no if the sub is in a given sector, good paring potential)
 
 ## Result Graph Format:
 - `o` -- Possible sub piece location

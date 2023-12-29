@@ -11,6 +11,7 @@ WEST = 3
 EAST = 4
 SURFACE = 5
 SILENCE = 6
+DRONE = 7
 
 def to_coords(width, idx):
     return (int(idx % width), int(idx / width))
@@ -176,16 +177,9 @@ def build_grid_tree(grid, width, height, x_sectors, y_sectors, start, moves):
     grid_tree.cur_idx = start
     grid_tree.grid[grid_tree.cur_idx] = FILLED
 
-    silenced = False
-
     for (move_dir, extra) in moves:
         grid_nodes = get_active_leaves(grid_tree)
         if move_dir == SURFACE:
-            if not silenced:
-                print("Must silence before surfacing")
-                sys.exit(1)
-            silenced = False
-
             for grid_node in grid_nodes:
 
                 sector_idx = grid_idx_to_sector_idx(grid_node.cur_idx, width, height, x_sectors, y_sectors)
@@ -198,12 +192,20 @@ def build_grid_tree(grid, width, height, x_sectors, y_sectors, start, moves):
                 else:
                     grid_node.failed = True
 
-        elif move_dir == SILENCE:
-            if silenced:
-                print("Can't silence while silenced!")
-                sys.exit(1)
-            silenced = True
+        elif move_dir == DRONE:
+            for grid_node in grid_nodes:
 
+                sector_idx = grid_idx_to_sector_idx(grid_node.cur_idx, width, height, x_sectors, y_sectors)
+                if sector_idx in extra:
+                    new_grid = GridNode()
+                    new_grid.grid = grid[:]
+                    new_grid.start_idx = start
+                    new_grid.cur_idx = grid_node.cur_idx
+                    grid_node.children.append(new_grid)
+                else:
+                    grid_node.failed = True
+
+        elif move_dir == SILENCE:
             for grid_node in grid_nodes:
                 tmp_grid = grid_node.grid
 
@@ -280,15 +282,15 @@ def build_grid_tree(grid, width, height, x_sectors, y_sectors, start, moves):
                     new_node.cur_idx = branch_idx
                     grid_node.children.append(new_node)
 
-                    print_grid(new_node.grid, width, height, x_sectors, y_sectors)
+                    # print_grid(new_node.grid, width, height, x_sectors, y_sectors)
 
                 opt_grid = grid[:]
                 map_possible_points(opt_grid, path_options)
 
                 opt_grid[cur_idx] = FILLED
-                print("== showing possible silence routes ==")
-                print_grid(opt_grid, width, height, x_sectors, y_sectors)
-                print("=====================================")
+                # print("== showing possible silence routes ==")
+                # print_grid(opt_grid, width, height, x_sectors, y_sectors)
+                # print("=====================================")
         else:
             for grid_node in grid_nodes:
                 tmp_grid = grid_node.grid
@@ -316,9 +318,11 @@ def print_move_history(move_history):
         elif move == EAST:
             print("EAST ", end='')
         elif move == SURFACE:
-            print("SURFACE ", end='')
+            print("SURFACE ", extra, end='')
         elif move == SILENCE:
             print("SILENCE ", end='')
+        elif move == DRONE:
+            print("DRONE ", extra, end='')
     print()
 
 def parse_historyfile(filename, x_sectors, y_sectors):
@@ -347,9 +351,17 @@ def parse_historyfile(filename, x_sectors, y_sectors):
         elif command == "SI":
             move_history.append((SILENCE, 0))
         else:
-            if len(command) > 3 and command[:2] == "SU" and command[2:3] == " ":
+            pieces = command.split()
+            if len(pieces) <= 1:
+                sys.exit(1)
+
+            if pieces[0] == "SU":
+                if len(pieces) != 2:
+                    print("Invalid surface args; Expected <sector>")
+                    sys.exit(1)
+
                 try:
-                    sector = int(command[3:])
+                    sector = int(pieces[1])
                 except ValueError:
                     print("Surface sector is not an integer")
                     sys.exit(1)
@@ -362,6 +374,36 @@ def parse_historyfile(filename, x_sectors, y_sectors):
                 internal_sector = sector - 1
 
                 move_history.append((SURFACE, internal_sector))
+            elif pieces[0] == "DR":
+                if len(pieces) != 3:
+                    print("Invalid drone args; Expected <sector> <Y/N>")
+                    sys.exit(1)
+
+                try:
+                    sector = int(pieces[1])
+                except ValueError:
+                    print("Surface sector is not an integer")
+                    sys.exit(1)
+
+                max_sector = x_sectors * y_sectors
+                if sector > max_sector or sector < 1:
+                    print("Surface has an invalid sector")
+                    sys.exit(1)
+
+                internal_sector = sector - 1
+
+                # Make a list of all sectors the sub could be in
+                # If we got a Y, the list is just the passed sector
+                # otherwise, it's everything but the passed sector
+                rem_sectors = []
+                if pieces[2] == "Y":
+                    rem_sectors.append(internal_sector)
+                else:
+                    for i in range(0, max_sector):
+                        if i != internal_sector:
+                            rem_sectors.append(i)
+
+                move_history.append((DRONE, rem_sectors))
             else:
                 print("Surface move should have a defined integer sector")
                 sys.exit(1)
@@ -421,6 +463,7 @@ for start_idx in range(grid_width * grid_height):
 valid_starts = set(valid_starts)
 valid_ends = set(valid_ends)
 
+'''
 print("Printing all valid potential starting points\n")
 i = 1
 for idx in valid_starts:
@@ -429,13 +472,14 @@ for idx in valid_starts:
         print("")
     i += 1
 print("\n")
+'''
 
 print("Graphing all valid potential starting points\n")
 tmp_grid = grid[:]
 map_possible_points(tmp_grid, valid_starts)
 print_grid(tmp_grid, grid_width, grid_height, x_sectors, y_sectors)
 
-
+'''
 print("Printing all valid potential current points\n")
 i = 1
 for idx in valid_ends:
@@ -444,6 +488,7 @@ for idx in valid_ends:
         print("")
     i += 1
 print("\n")
+'''
 
 print("Graphing all valid potential current points\n")
 tmp_grid = grid[:]
